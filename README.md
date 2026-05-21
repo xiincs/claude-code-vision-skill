@@ -4,6 +4,8 @@
 
 专为使用 DeepSeek 等无多模态能力的模型作为 Claude Code 底座的用户设计。
 
+本 skill 搭配 browser-harness skill 使用，驱动前端页面布局检查。
+
 ## 支持的模型
 
 | Provider | 模型 | API Key 环境变量 |
