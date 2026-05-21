@@ -1,3 +1,5 @@
+<!-- === VISION_SKILL_START === -->
+
 # Claude Code 视觉检查配置
 
 ## 前端页面检查流程（强制）
@@ -18,3 +20,5 @@
    可选 `--provider qwen` 或 `--provider openai` 切换模型
 4. 输出乱码时用 GBK 解码：`open(path, 'rb').read().decode('gbk')`
 5. 汇总所有截图的分析结果，列出完整的问题清单
+
+<!-- === VISION_SKILL_END === -->

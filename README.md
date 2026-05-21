@@ -14,65 +14,90 @@
 | 通义千问 (Qwen) | qwen-vl-max | `DASHSCOPE_API_KEY` |
 | OpenAI | gpt-4o | `OPENAI_API_KEY` |
 
-## 快速安装
+---
+
+## Claude Code 安装流程（给 Claude Code 看的指令）
+
+> **When the user asks you to install this skill, follow these steps IN ORDER. Do NOT skip any step.**
+
+### Step 1 — 询问用户
+
+使用 AskUserQuestion 询问以下信息：
+
+1. **选择 provider**：doubao / qwen / openai（可多选）
+2. **API Key**：每个 provider 的 API key
+3. **默认 provider**（多选时）：选哪个作为默认
+
+### Step 2 — 运行安装脚本
 
 ```bash
-# 安装到用户目录
+python install.py \
+  --api-key qwen:sk-xxx \
+  --default-provider qwen \
+  --merge-claude
+```
+
+`--api-key` 可重复，`--merge-claude` **必须带上**。
+
+### Step 3 — 合并 CLAUDE.md（如果 install.py 未自动完成）
+
+如果未使用 `--merge-claude`，则手动合并：
+
+1. 读取项目根目录的 `CLAUDE.md`
+2. 检查 `~/.claude/CLAUDE.md` 是否已有 `<!-- === VISION_SKILL_START === -->` 标记
+3. 如果有标记 → 替换标记之间的内容
+4. 如果没有标记 → 追加到文件末尾（带标记）
+5. **此步骤不可跳过**
+
+### Step 4 — 验证安装
+
+```bash
+python ~/.claude/skills/vision/vision.py --help
+```
+
+---
+
+## 手动安装
+
+```bash
+# 交互式安装（你自己操作时）
 python install.py
 
 # 安装到指定项目
 python install.py --project /path/to/project
 
-# 预览（不实际写入）
+# 预览
 python install.py --dry-run
 ```
 
-## 环境变量
+## 手动配置环境变量
 
 ```bash
-# 必选：至少设置一个 API Key
+# 至少设置一个
 export DOUBAO_API_KEY="your_key"      # 豆包
 export DASHSCOPE_API_KEY="your_key"   # 通义千问
 export OPENAI_API_KEY="your_key"      # OpenAI
 
-# 可选：全局配置
+# 可选
 export VISION_PROVIDER=qwen           # 默认 provider
-export VISION_MODEL=qwen-vl-max       # 全局模型覆盖
-export VISION_TEMPERATURE=0           # 创造性 0-1，默认 0
-export VISION_MAX_TOKENS=4096         # 最大输出 token
-
-# 可选：provider 专属模型覆盖
-export DOUBAO_MODEL=doubao-seed-2-0-pro-260215
-export QWEN_MODEL=qwen-vl-max
-export OPENAI_MODEL=gpt-4o
-
-# 可选：自定义 API 端点
-export DOUBAO_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
-export DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-export OPENAI_BASE_URL=https://api.openai.com/v1
+export VISION_MODEL=qwen-vl-max       # 覆盖模型
 ```
 
 ## 使用方式
 
 ```bash
-# 自动检测 provider
 python ~/.claude/skills/vision/vision.py "screenshot.png" "描述这张图"
-
-# 指定 provider
 python ~/.claude/skills/vision/vision.py --provider qwen "ui.png" "分析布局问题"
-
-# 短选项
-python ~/.claude/skills/vision/vision.py -p openai "diagram.png" "解释架构"
 ```
 
-## 目录结构
+## 项目结构
 
 ```
 vision/              # skill 目录
-├── SKILL.md         # skill 定义（Claude Code 读取）
+├── SKILL.md         # skill 定义
 └── vision.py        # 多 provider 视觉脚本
 
 install.py           # 安装脚本
-CLAUDE.md            # UI 检查流程模板（合并到你的 ~/.claude/CLAUDE.md）
+CLAUDE.md            # UI 检查流程模板（合并到 ~/.claude/CLAUDE.md）
 README.md            # 本文件
 ```
