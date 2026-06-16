@@ -101,3 +101,5 @@ install.py           # 安装脚本
 CLAUDE.md            # UI 检查流程模板（合并到 ~/.claude/CLAUDE.md）
 README.md            # 本文件
 ```
+
+![STAR HISTORY](https://www.star-history.com/?repos=xiincs%2Fclaude-code-vision-skill&type=date&legend=top-left "star history")
