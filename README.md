@@ -102,4 +102,12 @@ CLAUDE.md            # UI 检查流程模板（合并到 ~/.claude/CLAUDE.md）
 README.md            # 本文件
 ```
 
-![STAR HISTORY](https://www.star-history.com/?repos=xiincs%2Fclaude-code-vision-skill&type=date&legend=top-left "star history")
+## Star History
+
+<a href="https://www.star-history.com/?repos=xiincs%2Fclaude-code-vision-skill&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=xiincs/claude-code-vision-skill&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=xiincs/claude-code-vision-skill&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=xiincs/claude-code-vision-skill&type=date&legend=top-left" />
+ </picture>
+</a>
