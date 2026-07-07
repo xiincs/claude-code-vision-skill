@@ -106,8 +106,8 @@ README.md            # 本文件
 
 <a href="https://www.star-history.com/?repos=xiincs%2Fclaude-code-vision-skill&type=date&legend=top-left">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=xiincs/claude-code-vision-skill&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=xiincs/claude-code-vision-skill&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=xiincs/claude-code-vision-skill&type=date&legend=top-left" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=xiincs/claude-code-vision-skill&type=date&theme=dark&legend=top-left&sealed_token=eXbr1XfowjfcMc_xueZDQ-cLVar5C-FIiIZ7-hRYxgA2zqFG7StIWgxTlgW6FsRts5EPqX3kNAnPkum4pAcVspqv7wJZCVwKO1oLpLJi0WRLCEXzc5LJ5w" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=xiincs/claude-code-vision-skill&type=date&legend=top-left&sealed_token=eXbr1XfowjfcMc_xueZDQ-cLVar5C-FIiIZ7-hRYxgA2zqFG7StIWgxTlgW6FsRts5EPqX3kNAnPkum4pAcVspqv7wJZCVwKO1oLpLJi0WRLCEXzc5LJ5w" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=xiincs/claude-code-vision-skill&type=date&legend=top-left&sealed_token=eXbr1XfowjfcMc_xueZDQ-cLVar5C-FIiIZ7-hRYxgA2zqFG7StIWgxTlgW6FsRts5EPqX3kNAnPkum4pAcVspqv7wJZCVwKO1oLpLJi0WRLCEXzc5LJ5w" />
  </picture>
 </a>
