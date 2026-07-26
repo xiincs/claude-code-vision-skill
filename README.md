@@ -13,6 +13,17 @@
 | 豆包 (Doubao) | doubao-seed-2-0-pro-260215 | `DOUBAO_API_KEY` |
 | 通义千问 (Qwen) | qwen-vl-max | `DASHSCOPE_API_KEY` |
 | OpenAI | gpt-4o | `OPENAI_API_KEY` |
+| Claude (Anthropic) | claude-sonnet-5 | `ANTHROPIC_API_KEY` |
+
+## 安装依赖
+
+需要 Python 3.10+。
+
+```bash
+pip install -r requirements.txt
+```
+
+`anthropic` 包仅在使用 `--provider anthropic` 时才会被导入，其他 provider 不受影响。
 
 ---
 
@@ -24,7 +35,7 @@
 
 使用 AskUserQuestion 询问以下信息：
 
-1. **选择 provider**：doubao / qwen / openai（可多选）
+1. **选择 provider**：doubao / qwen / openai / anthropic（可多选）
 2. **API Key**：每个 provider 的 API key
 3. **默认 provider**（多选时）：选哪个作为默认
 
@@ -63,9 +74,6 @@ python ~/.claude/skills/vision/vision.py --help
 # 交互式安装（你自己操作时）
 python install.py
 
-# 安装到指定项目
-python install.py --project /path/to/project
-
 # 预览
 python install.py --dry-run
 ```
@@ -77,6 +85,7 @@ python install.py --dry-run
 export DOUBAO_API_KEY="your_key"      # 豆包
 export DASHSCOPE_API_KEY="your_key"   # 通义千问
 export OPENAI_API_KEY="your_key"      # OpenAI
+export ANTHROPIC_API_KEY="your_key"   # Claude
 
 # 可选
 export VISION_PROVIDER=qwen           # 默认 provider
@@ -88,18 +97,22 @@ export VISION_MODEL=qwen-vl-max       # 覆盖模型
 ```bash
 python ~/.claude/skills/vision/vision.py "screenshot.png" "描述这张图"
 python ~/.claude/skills/vision/vision.py --provider qwen "ui.png" "分析布局问题"
+python ~/.claude/skills/vision/vision.py --provider anthropic "ui.png" "分析布局问题"
 ```
 
 ## 项目结构
 
 ```
-vision/              # skill 目录
-├── SKILL.md         # skill 定义
-└── vision.py        # 多 provider 视觉脚本
+vision/                # skill 目录
+├── SKILL.md           # skill 定义
+└── vision.py          # 多 provider 视觉脚本
 
-install.py           # 安装脚本
-CLAUDE.md            # UI 检查流程模板（合并到 ~/.claude/CLAUDE.md）
-README.md            # 本文件
+tests/                 # pytest 测试套件
+install.py             # 安装脚本
+CLAUDE.md              # UI 检查流程模板（合并到 ~/.claude/CLAUDE.md）
+README.md              # 本文件
+requirements.txt       # 运行依赖
+requirements-dev.txt   # 测试依赖
 ```
 
 ## Star History

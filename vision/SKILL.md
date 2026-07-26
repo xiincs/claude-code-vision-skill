@@ -37,6 +37,13 @@ When `--provider` is omitted, the provider is resolved by: `--provider` flag > `
 - Custom endpoint: `OPENAI_BASE_URL`
 - Also works with any OpenAI-compatible endpoint.
 
+### anthropic (Claude)
+
+- API key: `ANTHROPIC_API_KEY`
+- Default model: `claude-sonnet-5`
+- Custom endpoint: `ANTHROPIC_BASE_URL`
+- Requires the `anthropic` package (`pip install anthropic`); it's imported lazily so other providers work without it.
+
 ## Configuration
 
 | Env Var | Scope | Default |
