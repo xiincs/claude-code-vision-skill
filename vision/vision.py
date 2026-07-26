@@ -2,8 +2,8 @@
 Multi-provider vision tool.
 Usage: python vision.py [--provider <name>] <image_path> <prompt>
 
-Providers: doubao (豆包), qwen (通义千问), openai
-Set one of: DOUBAO_API_KEY, DASHSCOPE_API_KEY, OPENAI_API_KEY
+Providers: doubao (豆包), qwen (通义千问), openai, anthropic (Claude)
+Set one of: DOUBAO_API_KEY, DASHSCOPE_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY
 """
 import sys
 import os
@@ -35,7 +35,15 @@ PROVIDERS = {
         "base_default": "https://api.openai.com/v1",
         "model_default": "gpt-4o",
     },
+    "anthropic": {
+        "key_env": "ANTHROPIC_API_KEY",
+        "base_env": "ANTHROPIC_BASE_URL",
+        "base_default": "https://api.anthropic.com",
+        "model_default": "claude-sonnet-5",
+    },
 }
+
+REQUEST_TIMEOUT = 60
 
 MIME_MAP = {
     ".png": "image/png",
@@ -94,7 +102,7 @@ def resolve_model(provider_name: str, config: dict) -> str:
 
 
 # ── main ────────────────────────────────────────────────────────────
-def vision(image_path: str, prompt: str, provider_name: str, config: dict) -> str:
+def vision_openai_compatible(image_path: str, prompt: str, provider_name: str, config: dict) -> str:
     api_key = os.environ.get(config["key_env"], "")
     if not api_key:
         print(f"Error: {config['key_env']} env var is not set", file=sys.stderr)
@@ -110,7 +118,7 @@ def vision(image_path: str, prompt: str, provider_name: str, config: dict) -> st
     b64 = encode_image(image_path)
     data_uri = f"data:{mime};base64,{b64}"
 
-    client = OpenAI(api_key=api_key, base_url=base_url)
+    client = OpenAI(api_key=api_key, base_url=base_url, timeout=REQUEST_TIMEOUT)
     resp = client.chat.completions.create(
         model=model,
         messages=[
@@ -126,6 +134,55 @@ def vision(image_path: str, prompt: str, provider_name: str, config: dict) -> st
         max_tokens=max_tokens,
     )
     return resp.choices[0].message.content or ""
+
+
+def vision_anthropic(image_path: str, prompt: str, provider_name: str, config: dict) -> str:
+    api_key = os.environ.get(config["key_env"], "")
+    if not api_key:
+        print(f"Error: {config['key_env']} env var is not set", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        import anthropic
+    except ImportError:
+        print("Error: the 'anthropic' package is required for --provider anthropic. "
+              "Install it with: pip install anthropic", file=sys.stderr)
+        sys.exit(1)
+
+    model = resolve_model(provider_name, config)
+    base_url = os.environ.get(config["base_env"], config["base_default"])
+    temperature = float(os.environ.get("VISION_TEMPERATURE", "0"))
+    max_tokens = int(os.environ.get("VISION_MAX_TOKENS", "4096"))
+
+    ext = Path(image_path).suffix.lower()
+    mime = MIME_MAP.get(ext, "image/png")
+    b64 = encode_image(image_path)
+
+    client = anthropic.Anthropic(api_key=api_key, base_url=base_url, timeout=REQUEST_TIMEOUT)
+    resp = client.messages.create(
+        model=model,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "source": {"type": "base64", "media_type": mime, "data": b64},
+                    },
+                    {"type": "text", "text": prompt},
+                ],
+            }
+        ],
+    )
+    return resp.content[0].text if resp.content else ""
+
+
+def vision(image_path: str, prompt: str, provider_name: str, config: dict) -> str:
+    if provider_name == "anthropic":
+        return vision_anthropic(image_path, prompt, provider_name, config)
+    return vision_openai_compatible(image_path, prompt, provider_name, config)
 
 
 # ── cli ─────────────────────────────────────────────────────────────

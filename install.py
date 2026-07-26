@@ -28,17 +28,19 @@ PROVIDER_LABELS = {
     "doubao": "豆包 (Doubao)",
     "qwen": "通义千问 (Qwen)",
     "openai": "OpenAI (GPT-4o)",
+    "anthropic": "Claude (Anthropic)",
 }
 
 PROVIDER_KEY_ENV = {
     "doubao": "DOUBAO_API_KEY",
     "qwen": "DASHSCOPE_API_KEY",
     "openai": "OPENAI_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
 }
 
 
 # ── helpers ─────────────────────────────────────────────────────────
-def get_settings_path(user: bool = True) -> Path:
+def get_settings_path() -> Path:
     return Path.home() / ".claude" / "settings.json"
 
 
@@ -56,8 +58,8 @@ def write_json(path: Path, data: dict) -> None:
         f.write("\n")
 
 
-def set_env_in_settings(key: str, value: str, user: bool = True) -> None:
-    path = get_settings_path(user)
+def set_env_in_settings(key: str, value: str) -> None:
+    path = get_settings_path()
     settings = read_json(path)
     settings.setdefault("env", {})
     settings["env"][key] = value
@@ -124,7 +126,7 @@ def interactive() -> None:
     labels = list(PROVIDER_LABELS.items())
     for i, (pid, plabel) in enumerate(labels, 1):
         print(f"  [{i}] {plabel}")
-    print(f"  [{len(labels) + 1}] All three")
+    print(f"  [{len(labels) + 1}] All of the above")
 
     while True:
         try:
@@ -172,19 +174,8 @@ def interactive() -> None:
     set_env_in_settings("VISION_PROVIDER", default)
     print(f"  set VISION_PROVIDER={default}")
 
-    # install target
-    print("\nInstall target:")
-    print("  [1] User scope  (~/.claude/skills/vision/)")
-    print("  [2] This project (.claude/skills/vision/)")
-    choice = input("Choice [1]: ").strip() or "1"
-
-    if choice == "2":
-        cwd = Path.cwd()
-        target = cwd / ".claude" / "skills" / "vision"
-    else:
-        target = Path.home() / ".claude" / "skills" / "vision"
-
     # do install
+    target = Path.home() / ".claude" / "skills" / "vision"
     print()
     install_skill_files(target)
 
@@ -199,12 +190,7 @@ def interactive() -> None:
 # ── non-interactive (Claude Code driven) ────────────────────────────
 def run_noninteractive(args) -> None:
     dry = args.dry_run
-
-    # determine target
-    if args.project:
-        target = Path(args.project).resolve() / ".claude" / "skills" / "vision"
-    else:
-        target = Path.home() / ".claude" / "skills" / "vision"
+    target = Path.home() / ".claude" / "skills" / "vision"
 
     # 1. copy skill files
     print("Installing vision skill files...")
@@ -267,8 +253,6 @@ def main():
                         help="Set default vision provider")
     parser.add_argument("--merge-claude", action="store_true",
                         help="Merge CLAUDE.md template into ~/.claude/CLAUDE.md")
-    parser.add_argument("--project", metavar="PATH",
-                        help="Install to project scope instead of user scope")
     parser.add_argument("--dry-run", action="store_true",
                         help="Preview without writing files")
     args = parser.parse_args()
@@ -278,7 +262,7 @@ def main():
         sys.exit(1)
 
     # Detect mode: interactive if no actionable flags and stdin is a tty
-    has_cli_flags = args.api_key or args.default_provider or args.merge_claude or args.project
+    has_cli_flags = args.api_key or args.default_provider or args.merge_claude
     if has_cli_flags or not sys.stdin.isatty():
         run_noninteractive(args)
     else:
