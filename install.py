@@ -39,6 +39,23 @@ PROVIDER_KEY_ENV = {
 }
 
 
+def key_env_for(provider: str) -> str:
+    """Built-in providers have a fixed key env var; anything else follows
+    the {NAME}_API_KEY convention vision.py uses to synthesize providers."""
+    return PROVIDER_KEY_ENV.get(provider, f"{provider.upper()}_API_KEY")
+
+
+def parse_provider_value_pairs(entries: list | None, flag_name: str) -> dict:
+    result = {}
+    for entry in entries or []:
+        if ":" not in entry:
+            print(f"  skipping invalid {flag_name} '{entry}' (expected provider:value)")
+            continue
+        provider, value = entry.split(":", 1)
+        result[provider] = value
+    return result
+
+
 # ── helpers ─────────────────────────────────────────────────────────
 def get_settings_path() -> Path:
     return Path.home() / ".claude" / "settings.json"
@@ -127,16 +144,36 @@ def interactive() -> None:
     for i, (pid, plabel) in enumerate(labels, 1):
         print(f"  [{i}] {plabel}")
     print(f"  [{len(labels) + 1}] All of the above")
+    print(f"  [{len(labels) + 2}] 自定义 / Custom (any OpenAI- or Anthropic-compatible endpoint)")
 
+    custom = None
     while True:
         try:
-            choice = input(f"\nChoice (1-{len(labels) + 1}) [1]: ").strip() or "1"
+            choice = input(f"\nChoice (1-{len(labels) + 2}) [1]: ").strip() or "1"
             idx = int(choice)
             if 1 <= idx <= len(labels):
                 providers = [labels[idx - 1][0]]
                 break
             elif idx == len(labels) + 1:
                 providers = [p[0] for p in labels]
+                break
+            elif idx == len(labels) + 2:
+                print("\n自定义 provider:")
+                pid = input("  Provider name (e.g. myapi): ").strip().lower()
+                if not pid:
+                    print("  Name cannot be empty.")
+                    continue
+                base_url = input("  Base URL: ").strip()
+                model = input("  Model: ").strip()
+                if not base_url or not model:
+                    print("  Base URL and Model are both required.")
+                    continue
+                protocol = input("  Protocol (openai/anthropic) [openai]: ").strip().lower() or "openai"
+                if protocol not in ("openai", "anthropic"):
+                    print("  Protocol must be 'openai' or 'anthropic'.")
+                    continue
+                custom = {"base_url": base_url, "model": model, "protocol": protocol}
+                providers = [pid]
                 break
         except ValueError:
             pass
@@ -145,8 +182,7 @@ def interactive() -> None:
     # api keys
     api_keys = {}
     for pid in providers:
-        key_env = PROVIDER_KEY_ENV[pid]
-        key = input(f"{key_env}: ").strip()
+        key = input(f"{key_env_for(pid)}: ").strip()
         if key:
             api_keys[pid] = key
 
@@ -156,8 +192,18 @@ def interactive() -> None:
         print("Or set environment variables directly.\n")
     else:
         for pid, key in api_keys.items():
-            set_env_in_settings(PROVIDER_KEY_ENV[pid], key)
-            print(f"  set {PROVIDER_KEY_ENV[pid]}")
+            set_env_in_settings(key_env_for(pid), key)
+            print(f"  set {key_env_for(pid)}")
+
+    if custom:
+        pid = providers[0]
+        set_env_in_settings(f"{pid.upper()}_BASE_URL", custom["base_url"])
+        set_env_in_settings(f"{pid.upper()}_MODEL", custom["model"])
+        print(f"  set {pid.upper()}_BASE_URL")
+        print(f"  set {pid.upper()}_MODEL")
+        if custom["protocol"] != "openai":
+            set_env_in_settings(f"{pid.upper()}_PROTOCOL", custom["protocol"])
+            print(f"  set {pid.upper()}_PROTOCOL")
 
     # default provider
     default = None
@@ -197,18 +243,16 @@ def run_noninteractive(args) -> None:
     install_skill_files(target, dry_run=dry)
     print(f"  -> {target}\n")
 
-    # 2. configure API keys
-    if args.api_key:
+    # 2. configure API keys, and (for custom providers) base URL / model / protocol
+    key_pairs = parse_provider_value_pairs(args.api_key, "--api-key")
+    base_url_pairs = parse_provider_value_pairs(args.base_url, "--base-url")
+    model_pairs = parse_provider_value_pairs(args.model, "--model")
+    protocol_pairs = parse_provider_value_pairs(args.protocol, "--protocol")
+
+    if key_pairs:
         print("Configuring API keys...")
-        for entry in args.api_key:
-            if ":" not in entry:
-                print(f"  skipping invalid --api-key '{entry}' (expected provider:key)")
-                continue
-            provider, key = entry.split(":", 1)
-            if provider not in PROVIDER_KEY_ENV:
-                print(f"  skipping unknown provider '{provider}'")
-                continue
-            key_env = PROVIDER_KEY_ENV[provider]
+        for provider, key in key_pairs.items():
+            key_env = key_env_for(provider)
             if dry:
                 print(f"  [dry-run] set {key_env} in settings.json")
             else:
@@ -216,18 +260,32 @@ def run_noninteractive(args) -> None:
                 print(f"  set {key_env} in settings.json")
         print()
 
-    # 3. default provider
+    for pairs, suffix, label in (
+        (base_url_pairs, "BASE_URL", "base URLs"),
+        (model_pairs, "MODEL", "models"),
+        (protocol_pairs, "PROTOCOL", "protocols"),
+    ):
+        if not pairs:
+            continue
+        print(f"Configuring {label}...")
+        for provider, value in pairs.items():
+            env_name = f"{provider.upper()}_{suffix}"
+            if dry:
+                print(f"  [dry-run] set {env_name} in settings.json")
+            else:
+                set_env_in_settings(env_name, value)
+                print(f"  set {env_name} in settings.json")
+        print()
+
+    # 3. default provider (any name — built-in or custom; vision.py validates at runtime)
     if args.default_provider:
         provider = args.default_provider.lower()
-        if provider in PROVIDER_KEY_ENV:
-            if dry:
-                print(f"[dry-run] set VISION_PROVIDER={provider} in settings.json\n")
-            else:
-                set_env_in_settings("VISION_PROVIDER", provider)
-                print(f"Default provider: {provider}")
-                print(f"  set VISION_PROVIDER={provider} in settings.json\n")
+        if dry:
+            print(f"[dry-run] set VISION_PROVIDER={provider} in settings.json\n")
         else:
-            print(f"Unknown provider '{provider}', skipping VISION_PROVIDER\n")
+            set_env_in_settings("VISION_PROVIDER", provider)
+            print(f"Default provider: {provider}")
+            print(f"  set VISION_PROVIDER={provider} in settings.json\n")
 
     # 4. merge CLAUDE.md (only with explicit flag)
     if args.merge_claude:
@@ -248,9 +306,15 @@ def main():
     )
     parser.add_argument("--api-key", action="append", metavar="PROVIDER:KEY",
                         help="API key (repeatable). E.g. --api-key qwen:sk-xxx")
+    parser.add_argument("--base-url", action="append", metavar="PROVIDER:URL",
+                        help="Custom provider base URL (repeatable). E.g. --base-url myapi:https://host/v1")
+    parser.add_argument("--model", action="append", metavar="PROVIDER:MODEL",
+                        help="Custom provider model (repeatable). E.g. --model myapi:my-vision-model")
+    parser.add_argument("--protocol", action="append", metavar="PROVIDER:openai|anthropic",
+                        help="Custom provider request shape (repeatable, default openai). "
+                             "E.g. --protocol myapi:anthropic")
     parser.add_argument("--default-provider", metavar="PROVIDER",
-                        choices=list(PROVIDER_KEY_ENV),
-                        help="Set default vision provider")
+                        help="Set default vision provider (built-in or custom name)")
     parser.add_argument("--merge-claude", action="store_true",
                         help="Merge CLAUDE.md template into ~/.claude/CLAUDE.md")
     parser.add_argument("--dry-run", action="store_true",
@@ -262,7 +326,10 @@ def main():
         sys.exit(1)
 
     # Detect mode: interactive if no actionable flags and stdin is a tty
-    has_cli_flags = args.api_key or args.default_provider or args.merge_claude
+    has_cli_flags = (
+        args.api_key or args.base_url or args.model or args.protocol
+        or args.default_provider or args.merge_claude
+    )
     if has_cli_flags or not sys.stdin.isatty():
         run_noninteractive(args)
     else:

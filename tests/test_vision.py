@@ -58,6 +58,91 @@ def test_resolve_provider_default_fallback():
     assert config == vision.PROVIDERS["doubao"]
 
 
+# ── resolve_provider: custom / dynamic providers ─────────────────────
+def test_resolve_provider_custom_synthesizes_from_env(monkeypatch):
+    monkeypatch.setenv("MYAPI_BASE_URL", "https://my-endpoint.test/v1")
+    monkeypatch.setenv("MYAPI_MODEL", "my-vision-model")
+
+    name, config = vision.resolve_provider("myapi")
+
+    assert name == "myapi"
+    assert config == {
+        "key_env": "MYAPI_API_KEY",
+        "base_env": "MYAPI_BASE_URL",
+        "base_default": "https://my-endpoint.test/v1",
+        "model_default": "my-vision-model",
+        "protocol": "openai",
+    }
+
+
+def test_resolve_provider_custom_via_vision_provider_env(monkeypatch):
+    monkeypatch.setenv("VISION_PROVIDER", "myapi")
+    monkeypatch.setenv("MYAPI_BASE_URL", "https://my-endpoint.test/v1")
+    monkeypatch.setenv("MYAPI_MODEL", "my-vision-model")
+
+    name, config = vision.resolve_provider(None)
+
+    assert name == "myapi"
+    assert config["base_default"] == "https://my-endpoint.test/v1"
+
+
+def test_resolve_provider_custom_name_is_lowercased(monkeypatch):
+    monkeypatch.setenv("MYAPI_BASE_URL", "https://my-endpoint.test/v1")
+    monkeypatch.setenv("MYAPI_MODEL", "my-vision-model")
+
+    name, _ = vision.resolve_provider("MyApi")
+
+    assert name == "myapi"
+
+
+def test_resolve_provider_custom_anthropic_protocol(monkeypatch):
+    monkeypatch.setenv("MYAPI_BASE_URL", "https://my-endpoint.test")
+    monkeypatch.setenv("MYAPI_MODEL", "claude-like-model")
+    monkeypatch.setenv("MYAPI_PROTOCOL", "anthropic")
+
+    _, config = vision.resolve_provider("myapi")
+
+    assert config["protocol"] == "anthropic"
+
+
+def test_resolve_provider_custom_invalid_protocol_exits(monkeypatch):
+    monkeypatch.setenv("MYAPI_BASE_URL", "https://my-endpoint.test")
+    monkeypatch.setenv("MYAPI_MODEL", "some-model")
+    monkeypatch.setenv("MYAPI_PROTOCOL", "not-a-real-protocol")
+
+    with pytest.raises(SystemExit):
+        vision.resolve_provider("myapi")
+
+
+def test_resolve_provider_custom_missing_base_url_exits(monkeypatch):
+    monkeypatch.setenv("MYAPI_MODEL", "some-model")
+
+    with pytest.raises(SystemExit):
+        vision.resolve_provider("myapi")
+
+
+def test_resolve_provider_custom_missing_model_exits(monkeypatch):
+    monkeypatch.setenv("MYAPI_BASE_URL", "https://my-endpoint.test")
+
+    with pytest.raises(SystemExit):
+        vision.resolve_provider("myapi")
+
+
+def test_resolve_provider_custom_missing_everything_exits(monkeypatch):
+    with pytest.raises(SystemExit):
+        vision.resolve_provider("totally-unconfigured")
+
+
+def test_resolve_provider_custom_model_satisfied_by_global_vision_model(monkeypatch):
+    monkeypatch.setenv("MYAPI_BASE_URL", "https://my-endpoint.test")
+    monkeypatch.setenv("VISION_MODEL", "global-model")
+
+    name, config = vision.resolve_provider("myapi")
+
+    assert name == "myapi"
+    assert config["model_default"] == "global-model"
+
+
 # ── resolve_model ────────────────────────────────────────────────────
 def test_resolve_model_default_fallback():
     for name, config in vision.PROVIDERS.items():
@@ -213,6 +298,33 @@ def test_vision_dispatches_to_openai_compatible_for_others(monkeypatch, tmp_path
 
     monkeypatch.setattr(vision, "vision_openai_compatible", fake_vision_openai_compatible)
     result = vision.vision(str(image_path), "p", "openai", vision.PROVIDERS["openai"])
+
+    assert result == "ok"
+    assert called.get("yes") is True
+
+
+def test_vision_dispatches_by_protocol_field_not_provider_name(monkeypatch, tmp_path):
+    """A custom provider named e.g. 'myapi' with protocol=anthropic must still
+    dispatch to the anthropic request shape — dispatch is data-driven, not
+    keyed off the literal string 'anthropic'."""
+    image_path = tmp_path / "shot.png"
+    image_path.write_bytes(b"fake-png-bytes")
+
+    called = {}
+
+    def fake_vision_anthropic(*args, **kwargs):
+        called["yes"] = True
+        return "ok"
+
+    monkeypatch.setattr(vision, "vision_anthropic", fake_vision_anthropic)
+    custom_config = {
+        "key_env": "MYAPI_API_KEY",
+        "base_env": "MYAPI_BASE_URL",
+        "base_default": "https://my-endpoint.test",
+        "model_default": "claude-like-model",
+        "protocol": "anthropic",
+    }
+    result = vision.vision(str(image_path), "p", "myapi", custom_config)
 
     assert result == "ok"
     assert called.get("yes") is True
