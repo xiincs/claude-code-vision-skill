@@ -16,30 +16,40 @@ if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
 # ── provider registry ──────────────────────────────────────────────
+# "protocol" picks the request shape: "openai" (chat completions + image_url)
+# or "anthropic" (messages API + base64 image block). Covers the two shapes
+# implemented below; virtually every OpenAI-compatible endpoint (vLLM, Ollama,
+# LiteLLM, OpenRouter, Azure OpenAI, self-hosted proxies, ...) uses "openai".
+PROTOCOLS = ("openai", "anthropic")
+
 PROVIDERS = {
     "doubao": {
         "key_env": "DOUBAO_API_KEY",
         "base_env": "DOUBAO_BASE_URL",
         "base_default": "https://ark.cn-beijing.volces.com/api/v3",
         "model_default": "doubao-seed-2-0-pro-260215",
+        "protocol": "openai",
     },
     "qwen": {
         "key_env": "DASHSCOPE_API_KEY",
         "base_env": "DASHSCOPE_BASE_URL",
         "base_default": "https://dashscope.aliyuncs.com/compatible-mode/v1",
         "model_default": "qwen-vl-max",
+        "protocol": "openai",
     },
     "openai": {
         "key_env": "OPENAI_API_KEY",
         "base_env": "OPENAI_BASE_URL",
         "base_default": "https://api.openai.com/v1",
         "model_default": "gpt-4o",
+        "protocol": "openai",
     },
     "anthropic": {
         "key_env": "ANTHROPIC_API_KEY",
         "base_env": "ANTHROPIC_BASE_URL",
         "base_default": "https://api.anthropic.com",
         "model_default": "claude-sonnet-5",
+        "protocol": "anthropic",
     },
 }
 
@@ -60,25 +70,64 @@ def encode_image(path: str) -> str:
         return base64.b64encode(f.read()).decode("utf-8")
 
 
+def synthesize_provider(name: str) -> dict:
+    """Build a provider config for a name outside the built-in registry.
+
+    Reads {NAME}_API_KEY / {NAME}_BASE_URL / {NAME}_MODEL / {NAME}_PROTOCOL,
+    the same env-var-naming convention resolve_model() already uses for
+    per-provider model overrides. Lets users wire up any OpenAI- or
+    Anthropic-shaped endpoint without touching this file.
+    """
+    prefix = name.upper()
+    base_url = os.environ.get(f"{prefix}_BASE_URL", "")
+    model = os.environ.get("VISION_MODEL", "") or os.environ.get(f"{prefix}_MODEL", "")
+
+    missing = []
+    if not base_url:
+        missing.append(f"{prefix}_BASE_URL")
+    if not model:
+        missing.append(f"{prefix}_MODEL")
+    if missing:
+        names = ", ".join(PROVIDERS)
+        print(
+            f"Error: unknown provider '{name}'. Built-in providers: {names}.\n"
+            f"To define a custom provider, set: {', '.join(missing)} "
+            f"(also {prefix}_API_KEY; optionally {prefix}_PROTOCOL={'|'.join(PROTOCOLS)}, default openai).",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    protocol = os.environ.get(f"{prefix}_PROTOCOL", "openai").lower()
+    if protocol not in PROTOCOLS:
+        print(f"Error: {prefix}_PROTOCOL must be one of {', '.join(PROTOCOLS)}, got '{protocol}'", file=sys.stderr)
+        sys.exit(1)
+
+    return {
+        "key_env": f"{prefix}_API_KEY",
+        "base_env": f"{prefix}_BASE_URL",
+        "base_default": base_url,
+        "model_default": model,
+        "protocol": protocol,
+    }
+
+
 def resolve_provider(name: str | None) -> tuple[str, dict]:
     # explicit --provider flag
     if name:
-        if name not in PROVIDERS:
-            names = ", ".join(PROVIDERS)
-            print(f"Error: unknown provider '{name}'. Available: {names}", file=sys.stderr)
-            sys.exit(1)
-        return name, PROVIDERS[name]
+        name = name.lower()
+        if name in PROVIDERS:
+            return name, PROVIDERS[name]
+        return name, synthesize_provider(name)
 
     # VISION_PROVIDER env var
     env_provider = os.environ.get("VISION_PROVIDER", "").lower()
     if env_provider:
-        if env_provider not in PROVIDERS:
-            names = ", ".join(PROVIDERS)
-            print(f"Error: VISION_PROVIDER='{env_provider}' is invalid. Available: {names}", file=sys.stderr)
-            sys.exit(1)
-        return env_provider, PROVIDERS[env_provider]
+        if env_provider in PROVIDERS:
+            return env_provider, PROVIDERS[env_provider]
+        return env_provider, synthesize_provider(env_provider)
 
-    # auto-detect: first provider whose API key is set
+    # auto-detect: first built-in provider whose API key is set
+    # (custom providers must be named explicitly — there's no prefix to guess)
     for pname, pconf in PROVIDERS.items():
         if os.environ.get(pconf["key_env"]):
             return pname, pconf
@@ -180,7 +229,7 @@ def vision_anthropic(image_path: str, prompt: str, provider_name: str, config: d
 
 
 def vision(image_path: str, prompt: str, provider_name: str, config: dict) -> str:
-    if provider_name == "anthropic":
+    if config.get("protocol") == "anthropic":
         return vision_anthropic(image_path, prompt, provider_name, config)
     return vision_openai_compatible(image_path, prompt, provider_name, config)
 
@@ -188,8 +237,11 @@ def vision(image_path: str, prompt: str, provider_name: str, config: dict) -> st
 # ── cli ─────────────────────────────────────────────────────────────
 def main():
     parser = argparse.ArgumentParser(description="Multi-provider vision tool")
-    parser.add_argument("--provider", "-p", choices=list(PROVIDERS), default=None,
-                        help="Vision model provider (auto-detected from env if omitted)")
+    builtin = ", ".join(PROVIDERS)
+    parser.add_argument("--provider", "-p", default=None,
+                        help=f"Vision model provider: built-in ({builtin}), or any custom name backed by "
+                             f"{{NAME}}_API_KEY/{{NAME}}_BASE_URL/{{NAME}}_MODEL env vars "
+                             f"(auto-detected from env if omitted)")
     parser.add_argument("image_path", help="Path to the image file")
     parser.add_argument("prompt", help="Text prompt for the vision model")
     args = parser.parse_args()

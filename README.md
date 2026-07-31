@@ -18,6 +18,11 @@
 | 通义千问 (Qwen) | qwen-vl-max | `DASHSCOPE_API_KEY` |
 | OpenAI | gpt-4o | `OPENAI_API_KEY` |
 | Claude (Anthropic) | claude-sonnet-5 | `ANTHROPIC_API_KEY` |
+| **任意自定义 provider** | 任意 | `{NAME}_API_KEY` |
+
+不在上面四个内置厂商里的 `--provider` 名字，会按同一套命名约定动态解析：设置
+`{NAME}_API_KEY` / `{NAME}_BASE_URL` / `{NAME}_MODEL`（`{NAME}_PROTOCOL` 可选，
+默认 `openai`，需要 Anthropic Messages API 形状时设为 `anthropic`），无需改一行代码即可接入任意 OpenAI 兼容端点（vLLM、Ollama、LiteLLM、OpenRouter、Azure OpenAI、自建代理等）。详见 [vision/SKILL.md](vision/SKILL.md#any-custom-provider)。
 
 ## 安装依赖
 
@@ -39,7 +44,7 @@ pip install -r requirements.txt
 
 使用 AskUserQuestion 询问以下信息：
 
-1. **选择 provider**：doubao / qwen / openai / anthropic（可多选）
+1. **选择 provider**：doubao / qwen / openai / anthropic / 自定义（可多选；自定义需额外要 base URL、model，可选 protocol）
 2. **API Key**：每个 provider 的 API key
 3. **默认 provider**（多选时）：选哪个作为默认
 
@@ -53,6 +58,17 @@ python install.py \
 ```
 
 `--api-key` 可重复，`--merge-claude` **必须带上**。
+
+如果用户选了自定义 provider，额外带上 `--base-url` / `--model`（`--protocol` 可选，默认 openai）：
+
+```bash
+python install.py \
+  --api-key myapi:sk-xxx \
+  --base-url myapi:https://host/v1 \
+  --model myapi:my-vision-model \
+  --default-provider myapi \
+  --merge-claude
+```
 
 ### Step 3 — 合并 CLAUDE.md（如果 install.py 未自动完成）
 
@@ -96,12 +112,22 @@ export VISION_PROVIDER=qwen           # 默认 provider
 export VISION_MODEL=qwen-vl-max       # 覆盖模型
 ```
 
+自定义 provider（不在内置四个之列）按 `{NAME}_*` 命名约定注册，无需改代码：
+
+```bash
+export MYAPI_API_KEY="your_key"
+export MYAPI_BASE_URL="https://your-endpoint.example.com/v1"
+export MYAPI_MODEL="your-vision-model"
+export MYAPI_PROTOCOL="openai"        # 可选，openai(默认) 或 anthropic
+```
+
 ## 使用方式
 
 ```bash
 python ~/.claude/skills/vision/vision.py "screenshot.png" "描述这张图"
 python ~/.claude/skills/vision/vision.py --provider qwen "ui.png" "分析布局问题"
 python ~/.claude/skills/vision/vision.py --provider anthropic "ui.png" "分析布局问题"
+python ~/.claude/skills/vision/vision.py --provider myapi "ui.png" "分析布局问题"
 ```
 
 ## 项目结构

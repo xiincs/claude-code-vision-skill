@@ -44,15 +44,47 @@ When `--provider` is omitted, the provider is resolved by: `--provider` flag > `
 - Custom endpoint: `ANTHROPIC_BASE_URL`
 - Requires the `anthropic` package (`pip install anthropic`); it's imported lazily so other providers work without it.
 
+### any custom provider
+
+Any `--provider` name outside the built-in four is resolved dynamically from
+environment variables named after it — no code changes needed:
+
+| Env Var | Required | Notes |
+|---------|----------|-------|
+| `{NAME}_API_KEY` | yes | checked at request time, same as built-ins |
+| `{NAME}_BASE_URL` | yes | no default — arbitrary endpoint |
+| `{NAME}_MODEL` | yes | no default (or set global `VISION_MODEL` instead) |
+| `{NAME}_PROTOCOL` | no | `openai` (default) or `anthropic` — picks the request shape |
+
+`openai` covers essentially every OpenAI-compatible endpoint (vLLM, Ollama,
+LiteLLM, OpenRouter, Azure OpenAI, self-hosted proxies, ...). Use
+`{NAME}_PROTOCOL=anthropic` only if the endpoint speaks the Anthropic Messages
+API shape.
+
+```bash
+export MYAPI_API_KEY="sk-xxx"
+export MYAPI_BASE_URL="https://my-endpoint.example.com/v1"
+export MYAPI_MODEL="my-vision-model"
+python vision.py --provider myapi "screenshot.png" "describe this"
+```
+
+If `{NAME}_BASE_URL` or `{NAME}_MODEL` is missing, the tool prints exactly which
+variables to set instead of a generic "unknown provider" error.
+
 ## Configuration
 
 | Env Var | Scope | Default |
 |----------|-------|---------|
-| `VISION_PROVIDER` | Default provider | auto-detect |
+| `VISION_PROVIDER` | Default provider (built-in or custom name) | auto-detect (built-ins only) |
 | `VISION_MODEL` | Override model (all providers) | provider default |
 | `{PROVIDER}_MODEL` | Override model (per provider) | — |
+| `{PROVIDER}_BASE_URL` | Override/define endpoint (per provider) | built-in default, or required for custom |
+| `{PROVIDER}_PROTOCOL` | Request shape for a custom provider: `openai` \| `anthropic` | `openai` |
 | `VISION_TEMPERATURE` | Response creativity 0–1 | `0` |
 | `VISION_MAX_TOKENS` | Max response tokens | `4096` |
+
+Note: auto-detect (no `--provider` / `VISION_PROVIDER` set) only scans the four
+built-in providers' API keys — a custom provider must always be named explicitly.
 
 ## Examples
 
@@ -68,4 +100,8 @@ QWEN_MODEL=qvq-max python vision.py --provider qwen "diagram.png" "Explain the a
 
 # GPT-4o for visual regression
 python vision.py -p openai "after.png" "Compare with app design spec, flag differences."
+
+# Fully custom provider (self-hosted, third-party proxy, any OpenAI-compatible endpoint)
+MYAPI_API_KEY=sk-xxx MYAPI_BASE_URL=https://host/v1 MYAPI_MODEL=my-model \
+  python vision.py --provider myapi "ui.png" "分析布局问题"
 ```
