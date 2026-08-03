@@ -1,10 +1,8 @@
 # Claude Code Vision Skill
 
-<div align="center">
 [![GitHub stars](https://img.shields.io/github/stars/xiincs/claude-code-vision-skill)](https://github.com/xiincs/claude-code-vision-skill/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/xiincs/claude-code-vision-skill)](https://github.com/xiincs/claude-code-vision-skill/forks)
 [![GitHub last commit](https://img.shields.io/github/last-commit/xiincs/claude-code-vision-skill)](https://github.com/xiincs/claude-code-vision-skill/commits)
-</div>
 
 为 Claude Code 提供多模态视觉能力，支持多种视觉模型分析截图、UI、图表。
 
