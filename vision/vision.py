@@ -11,6 +11,7 @@ import json
 import base64
 import argparse
 from pathlib import Path
+from urllib.parse import urlparse
 from openai import OpenAI
 
 if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
@@ -58,23 +59,40 @@ PROVIDERS = {
 # Text-only models known to be routed here via a relay/proxy (e.g. CC Switch).
 # One-directional: a match here can only force "external" (safe — still runs
 # the mandatory vision workflow). It must never be used to infer "native" —
-# an unrecognized model name always falls through to the explicit
-# VISION_ROUTING setting (default "external"), never silently skipped.
+# an unrecognized model name always falls through to the checks below,
+# never silently skipped.
 TEXT_ONLY_MODEL_PATTERNS = ("deepseek",)
+
+# Anthropic's official API never serves a text-only model, so an unmodified
+# ANTHROPIC_BASE_URL is a structural guarantee of native vision — not a
+# guess the way matching a model name string would be. A relay/proxy that
+# swaps the backend (e.g. CC Switch pointing at DeepSeek) has to override
+# this URL to redirect traffic, so its presence (pointing elsewhere) is what
+# actually makes the backend unverifiable.
+OFFICIAL_ANTHROPIC_HOSTS = ("api.anthropic.com",)
 
 
 def resolve_routing() -> str:
     """Returns "native" or "external".
 
-    "native" must come from an explicit, human-set VISION_ROUTING=native —
-    never inferred. The blocklist only ever overrides toward "external", as
-    a safety net for a stale VISION_ROUTING left over from a previous
-    native-model session.
+    Priority: text-only blocklist (always wins) > explicit human-set
+    VISION_ROUTING (either value) > no relay override present (structural
+    "native") > unverifiable relay with no explicit signal ("external",
+    safe default — never silently skipped).
     """
     model_hint = os.environ.get("ANTHROPIC_MODEL", "").lower()
     if any(p in model_hint for p in TEXT_ONLY_MODEL_PATTERNS):
         return "external"
-    return os.environ.get("VISION_ROUTING", "external").lower()
+
+    explicit = os.environ.get("VISION_ROUTING", "").lower()
+    if explicit:
+        return explicit
+
+    base_url = os.environ.get("ANTHROPIC_BASE_URL", "").strip()
+    if not base_url or urlparse(base_url).hostname in OFFICIAL_ANTHROPIC_HOSTS:
+        return "native"
+
+    return "external"
 
 
 REQUEST_TIMEOUT = 60
