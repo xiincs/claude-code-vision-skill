@@ -131,9 +131,12 @@ export MYAPI_PROTOCOL="openai"        # 可选，openai(默认) 或 anthropic
 **无法感知真实连接的是哪个模型**——代理把请求伪装成 Anthropic API 协议转发，这层转换对
 Claude Code 不可见。路由判断按以下优先级依次进行：
 
-1. **内置纯文本模型黑名单**（当前含 `deepseek`）：`ANTHROPIC_MODEL` 命中时始终强制
-   `external`，优先级最高，即使下面几条都指向别的结果也不例外。黑名单只会让判断更保守
-   （多调用），不会让它更激进（漏检）——未命中的新模型永远不会被静默推断成 `native`。
+1. **内置纯文本模型黑名单**（当前覆盖 DeepSeek、Qwen3-Coder、GLM-4.5/4.6、GLM-5.x、Kimi K2
+   的纯文本版本、Devstral）：`ANTHROPIC_MODEL` 命中时始终强制 `external`，优先级最高，即使
+   下面几条都指向别的结果也不例外。黑名单用正则匹配，因为个别厂商的多模态版本和纯文本版本
+   共享同一前缀（例如 GLM 的 `glm-4.6` vs `glm-4.6v`、Kimi 的 `kimi-k2-thinking` vs
+   `kimi-k2.6`），正则排除了这些多模态变体，避免误伤。黑名单只会让判断更保守（多调用），不会
+   让它更激进（漏检）——未命中的新模型永远不会被静默推断成 `native`。
 2. **显式 `VISION_ROUTING`**：设置了就按你说的来（`native` 或 `external`），优先于下面的自动判断。
 3. **未设置 `ANTHROPIC_BASE_URL`，或指向官方 `api.anthropic.com`** → 自动判定为 `native`。
    这不是猜测：Anthropic 官方 API 不提供纯文本模型，只要没有代理把这个地址改写指向别处，
