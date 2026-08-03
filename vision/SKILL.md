@@ -7,6 +7,19 @@ description: Call vision models (Doubao, Qwen, OpenAI) to analyze images. Use wh
 
 Multi-provider vision tool. Call various vision models to describe images. Feed it a prompt + image path, get back a text description.
 
+## When to use this tool
+
+If you can already see and understand the image yourself (native multimodal model), skip this tool — analyze it directly.
+
+A SessionStart hook normally announces this session's routing status up front. If that context isn't visible (e.g. compacted out of a long conversation, or the hook isn't installed), check before calling this tool:
+
+```bash
+python vision.py --check-routing
+```
+
+- `native` → you already have native image understanding this session; don't call this tool.
+- `external` (default) → proceed with the quick start below.
+
 ## Quick start
 
 ```bash
@@ -17,13 +30,13 @@ When `--provider` is omitted, the provider is resolved by: `--provider` flag > `
 
 ## Providers
 
-### doubao (豆包 / Volcengine Ark)
+### doubao (Volcengine Ark)
 
 - API key: `DOUBAO_API_KEY`
 - Default model: `doubao-seed-2-0-pro-260215`
 - Custom endpoint: `DOUBAO_BASE_URL`
 
-### qwen (通义千问 / DashScope)
+### qwen (DashScope)
 
 - API key: `DASHSCOPE_API_KEY`
 - Default model: `qwen-vl-max`
@@ -103,5 +116,5 @@ python vision.py -p openai "after.png" "Compare with app design spec, flag diffe
 
 # Fully custom provider (self-hosted, third-party proxy, any OpenAI-compatible endpoint)
 MYAPI_API_KEY=sk-xxx MYAPI_BASE_URL=https://host/v1 MYAPI_MODEL=my-model \
-  python vision.py --provider myapi "ui.png" "分析布局问题"
+  python vision.py --provider myapi "ui.png" "Analyze layout issues"
 ```
