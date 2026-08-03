@@ -25,8 +25,8 @@ MERGE_MARKER_START = "<!-- === VISION_SKILL_START === -->"
 MERGE_MARKER_END = "<!-- === VISION_SKILL_END === -->"
 
 PROVIDER_LABELS = {
-    "doubao": "豆包 (Doubao)",
-    "qwen": "通义千问 (Qwen)",
+    "doubao": "Doubao (Volcengine Ark)",
+    "qwen": "Qwen (DashScope)",
     "openai": "OpenAI (GPT-4o)",
     "anthropic": "Claude (Anthropic)",
 }
@@ -179,7 +179,7 @@ def interactive() -> None:
     for i, (pid, plabel) in enumerate(labels, 1):
         print(f"  [{i}] {plabel}")
     print(f"  [{len(labels) + 1}] All of the above")
-    print(f"  [{len(labels) + 2}] 自定义 / Custom (any OpenAI- or Anthropic-compatible endpoint)")
+    print(f"  [{len(labels) + 2}] Custom (any OpenAI- or Anthropic-compatible endpoint)")
 
     custom = None
     while True:
@@ -193,7 +193,7 @@ def interactive() -> None:
                 providers = [p[0] for p in labels]
                 break
             elif idx == len(labels) + 2:
-                print("\n自定义 provider:")
+                print("\nCustom provider:")
                 pid = input("  Provider name (e.g. myapi): ").strip().lower()
                 if not pid:
                     print("  Name cannot be empty.")

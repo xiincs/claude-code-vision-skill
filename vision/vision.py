@@ -2,7 +2,7 @@
 Multi-provider vision tool.
 Usage: python vision.py [--provider <name>] <image_path> <prompt>
 
-Providers: doubao (豆包), qwen (通义千问), openai, anthropic (Claude)
+Providers: doubao (Volcengine Ark), qwen (DashScope), openai, anthropic (Claude)
 Set one of: DOUBAO_API_KEY, DASHSCOPE_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY
 """
 import sys
