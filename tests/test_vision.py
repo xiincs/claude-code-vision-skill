@@ -9,7 +9,36 @@ import vision
 
 
 # ── resolve_routing ────────────────────────────────────────────────
-def test_resolve_routing_default_external():
+def test_resolve_routing_default_native_when_no_relay():
+    """No ANTHROPIC_BASE_URL override means Claude Code is talking to
+    Anthropic's official API directly — every model served there is
+    multimodal, so this is a structural fact, not a guess."""
+    assert vision.resolve_routing() == "native"
+
+
+def test_resolve_routing_native_when_base_url_is_official(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
+    assert vision.resolve_routing() == "native"
+
+
+def test_resolve_routing_native_when_official_base_url_has_path(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://api.anthropic.com/v1")
+    assert vision.resolve_routing() == "native"
+
+
+def test_resolve_routing_external_when_relay_base_url_present(monkeypatch):
+    """A base URL pointing somewhere other than Anthropic's official API is
+    exactly the unverifiable-backend case (e.g. CC Switch -> DeepSeek) —
+    must stay 'external' with no explicit VISION_ROUTING set."""
+    monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://my-relay.example.com/v1")
+    assert vision.resolve_routing() == "external"
+
+
+def test_resolve_routing_hostname_check_is_not_a_substring_match(monkeypatch):
+    """A relay hostname that merely contains the official domain as a
+    substring must not be treated as official — only an exact hostname
+    match counts."""
+    monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://api.anthropic.com.evil.example/v1")
     assert vision.resolve_routing() == "external"
 
 
@@ -21,6 +50,22 @@ def test_resolve_routing_explicit_native(monkeypatch):
 def test_resolve_routing_explicit_external(monkeypatch):
     monkeypatch.setenv("VISION_ROUTING", "external")
     assert vision.resolve_routing() == "external"
+
+
+def test_resolve_routing_explicit_external_overrides_official_base_url(monkeypatch):
+    """An explicit human choice (e.g. forcing external for comparison
+    testing) wins even in a verified-native session."""
+    monkeypatch.setenv("VISION_ROUTING", "external")
+    monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
+    assert vision.resolve_routing() == "external"
+
+
+def test_resolve_routing_explicit_native_overrides_relay_base_url(monkeypatch):
+    """An explicit human choice is trusted over the relay-presence signal —
+    the user has more information than the base URL alone provides."""
+    monkeypatch.setenv("VISION_ROUTING", "native")
+    monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://my-relay.example.com/v1")
+    assert vision.resolve_routing() == "native"
 
 
 def test_resolve_routing_case_insensitive(monkeypatch):
@@ -48,9 +93,20 @@ def test_resolve_routing_blocklist_case_insensitive(monkeypatch):
     assert vision.resolve_routing() == "external"
 
 
-def test_resolve_routing_unrecognized_model_does_not_imply_native(monkeypatch):
-    """An unlisted model name must never be inferred as native — only an
-    explicit VISION_ROUTING=native can produce 'native'."""
+def test_resolve_routing_blocklist_overrides_official_base_url(monkeypatch):
+    """The blocklist wins even against a structurally-native-looking base
+    URL — belt and suspenders, though this combination shouldn't arise in
+    practice (a genuine Anthropic session never reports a DeepSeek model)."""
+    monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
+    monkeypatch.setenv("ANTHROPIC_MODEL", "deepseek-chat")
+    assert vision.resolve_routing() == "external"
+
+
+def test_resolve_routing_unrecognized_model_with_relay_does_not_imply_native(monkeypatch):
+    """An unlisted model name must never be enough to infer native by
+    itself — only an explicit VISION_ROUTING=native, or a verified official
+    base URL, can produce 'native'."""
+    monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://my-relay.example.com/v1")
     monkeypatch.setenv("ANTHROPIC_MODEL", "some-brand-new-multimodal-model")
     assert vision.resolve_routing() == "external"
 
@@ -68,7 +124,14 @@ def test_routing_message_external():
 
 
 # ── cli: --check-routing / --session-start-hook ───────────────────────
-def test_cli_check_routing_prints_external_by_default(monkeypatch, capsys):
+def test_cli_check_routing_prints_native_by_default(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["vision.py", "--check-routing"])
+    vision.main()
+    assert capsys.readouterr().out.strip() == "native"
+
+
+def test_cli_check_routing_prints_external_with_relay_base_url(monkeypatch, capsys):
+    monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://my-relay.example.com/v1")
     monkeypatch.setattr(sys, "argv", ["vision.py", "--check-routing"])
     vision.main()
     assert capsys.readouterr().out.strip() == "external"
@@ -86,7 +149,7 @@ def test_cli_session_start_hook_emits_valid_json(monkeypatch, capsys):
     vision.main()
     payload = json.loads(capsys.readouterr().out)
     assert payload["hookSpecificOutput"]["hookEventName"] == "SessionStart"
-    assert "external" in payload["hookSpecificOutput"]["additionalContext"].lower()
+    assert "native" in payload["hookSpecificOutput"]["additionalContext"].lower()
 
 
 def test_cli_session_start_hook_reflects_native_routing(monkeypatch, capsys):

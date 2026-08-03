@@ -129,20 +129,25 @@ export MYAPI_PROTOCOL="openai"        # 可选，openai(默认) 或 anthropic
 
 通过 CC Switch 等代理在 DeepSeek 之类纯文本模型和原生多模态模型之间切换时，Claude Code
 **无法感知真实连接的是哪个模型**——代理把请求伪装成 Anthropic API 协议转发，这层转换对
-Claude Code 不可见。因此本项目的路由不做自动检测，而是一个显式、默认安全的开关：
+Claude Code 不可见。路由判断按以下优先级依次进行：
 
-- **默认（未设置）= `external`**：始终视为需要外部视觉分析，保证切到纯文本模型时不会漏掉截图检查。
-- **`VISION_ROUTING=native`**：显式声明当前模型具备原生识图能力，跳过外部调用，由用户自己在切换厂商时设置。
-- **内置纯文本模型黑名单**（当前含 `deepseek`）：即使忘记把 `VISION_ROUTING` 切回来，只要
-  `ANTHROPIC_MODEL` 命中黑名单仍会强制走外部视觉分析。黑名单只会让判断更保守（多调用），
-  不会让它更激进（漏检）——未命中的新模型永远不会被静默推断成 `native`。
+1. **内置纯文本模型黑名单**（当前含 `deepseek`）：`ANTHROPIC_MODEL` 命中时始终强制
+   `external`，优先级最高，即使下面几条都指向别的结果也不例外。黑名单只会让判断更保守
+   （多调用），不会让它更激进（漏检）——未命中的新模型永远不会被静默推断成 `native`。
+2. **显式 `VISION_ROUTING`**：设置了就按你说的来（`native` 或 `external`），优先于下面的自动判断。
+3. **未设置 `ANTHROPIC_BASE_URL`，或指向官方 `api.anthropic.com`** → 自动判定为 `native`。
+   这不是猜测：Anthropic 官方 API 不提供纯文本模型，只要没有代理把这个地址改写指向别处，
+   后端就一定是原生多模态的，结构上可以确定，不需要用户手动声明。
+4. **`ANTHROPIC_BASE_URL` 指向其他地址、且以上都不适用** → `external`。这才是真正"身份不可
+   验证"的情况（CC Switch 之类代理在中间转发，模型名字不可信），保持默认安全。
 
 安装时会自动注册一个 Claude Code `SessionStart` hook，**每次会话开始都会用当前环境变量重新判断一次路由**，
 不需要切换厂商后重跑 `install.py`，也不需要任何手动开关。判断逻辑集中在 `vision.py` 一处
 （`resolve_routing()`），CLAUDE.md 和 SKILL.md 都不感知具体路径或黑名单细节。
 
 ```bash
-export VISION_ROUTING=native   # 切到原生多模态模型时手动声明
+export VISION_ROUTING=native     # 强制原生（即使检测不到官方 base URL）
+export VISION_ROUTING=external   # 强制外部（即使检测到官方 base URL，比如做对比测试）
 ```
 
 ## 使用方式
