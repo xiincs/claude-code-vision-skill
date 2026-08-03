@@ -7,6 +7,7 @@ Set one of: DOUBAO_API_KEY, DASHSCOPE_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY
 """
 import sys
 import os
+import re
 import json
 import base64
 import argparse
@@ -61,7 +62,28 @@ PROVIDERS = {
 # the mandatory vision workflow). It must never be used to infer "native" —
 # an unrecognized model name always falls through to the checks below,
 # never silently skipped.
-TEXT_ONLY_MODEL_PATTERNS = ("deepseek",)
+# Patterns are regexes matched against the lowercased model name with
+# re.search — not plain substrings — because three families need a boundary
+# plain substrings can't express:
+#   - kimi-k2-  Moonshot's text-only Kimi IDs are all "kimi-k2-<suffix>"
+#     (kimi-k2-turbo-preview, kimi-k2-thinking, ...). The newer kimi-k2.5/
+#     k2.6/k2.7 add vision and use a dot instead of a hyphen after "k2", so
+#     anchoring on the hyphen excludes them without listing every ID.
+#   - glm-4\.[56](?!v)  Zhipu glues "v" directly onto the version number for
+#     GLM-4.x's vision variants (glm-4.6 -> glm-4.6v, glm-4.5 -> glm-4.5v), so
+#     a plain prefix match would also catch its own vision variant.
+#   - glm-5(?!v)  GLM-5.x's vision counterpart is "glm-5v-turbo" — a flat
+#     name, not a version-number suffix, but it still starts with "glm-5" so
+#     a plain prefix match would catch it too. Both lookaheads exclude just
+#     the "v" that marks the vision line.
+TEXT_ONLY_MODEL_PATTERNS = (
+    r"deepseek",
+    r"qwen3-coder",
+    r"glm-4\.[56](?!v)",
+    r"glm-5(?!v)",
+    r"kimi-k2-",
+    r"devstral",
+)
 
 # Anthropic's official API never serves a text-only model, so an unmodified
 # ANTHROPIC_BASE_URL is a structural guarantee of native vision — not a
@@ -81,7 +103,7 @@ def resolve_routing() -> str:
     safe default — never silently skipped).
     """
     model_hint = os.environ.get("ANTHROPIC_MODEL", "").lower()
-    if any(p in model_hint for p in TEXT_ONLY_MODEL_PATTERNS):
+    if any(re.search(p, model_hint) for p in TEXT_ONLY_MODEL_PATTERNS):
         return "external"
 
     explicit = os.environ.get("VISION_ROUTING", "").lower()
