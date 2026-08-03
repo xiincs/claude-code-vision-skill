@@ -125,6 +125,26 @@ export MYAPI_MODEL="your-vision-model"
 export MYAPI_PROTOCOL="openai"        # 可选，openai(默认) 或 anthropic
 ```
 
+## 模型切换路由（VISION_ROUTING）
+
+通过 CC Switch 等代理在 DeepSeek 之类纯文本模型和原生多模态模型之间切换时，Claude Code
+**无法感知真实连接的是哪个模型**——代理把请求伪装成 Anthropic API 协议转发，这层转换对
+Claude Code 不可见。因此本项目的路由不做自动检测，而是一个显式、默认安全的开关：
+
+- **默认（未设置）= `external`**：始终视为需要外部视觉分析，保证切到纯文本模型时不会漏掉截图检查。
+- **`VISION_ROUTING=native`**：显式声明当前模型具备原生识图能力，跳过外部调用，由用户自己在切换厂商时设置。
+- **内置纯文本模型黑名单**（当前含 `deepseek`）：即使忘记把 `VISION_ROUTING` 切回来，只要
+  `ANTHROPIC_MODEL` 命中黑名单仍会强制走外部视觉分析。黑名单只会让判断更保守（多调用），
+  不会让它更激进（漏检）——未命中的新模型永远不会被静默推断成 `native`。
+
+安装时会自动注册一个 Claude Code `SessionStart` hook，**每次会话开始都会用当前环境变量重新判断一次路由**，
+不需要切换厂商后重跑 `install.py`，也不需要任何手动开关。判断逻辑集中在 `vision.py` 一处
+（`resolve_routing()`），CLAUDE.md 和 SKILL.md 都不感知具体路径或黑名单细节。
+
+```bash
+export VISION_ROUTING=native   # 切到原生多模态模型时手动声明
+```
+
 ## 使用方式
 
 ```bash

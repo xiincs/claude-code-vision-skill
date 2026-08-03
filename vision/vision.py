@@ -2,11 +2,12 @@
 Multi-provider vision tool.
 Usage: python vision.py [--provider <name>] <image_path> <prompt>
 
-Providers: doubao (豆包), qwen (通义千问), openai, anthropic (Claude)
+Providers: doubao (Volcengine Ark), qwen (DashScope), openai, anthropic (Claude)
 Set one of: DOUBAO_API_KEY, DASHSCOPE_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY
 """
 import sys
 import os
+import json
 import base64
 import argparse
 from pathlib import Path
@@ -52,6 +53,29 @@ PROVIDERS = {
         "protocol": "anthropic",
     },
 }
+
+# ── routing ─────────────────────────────────────────────────────────
+# Text-only models known to be routed here via a relay/proxy (e.g. CC Switch).
+# One-directional: a match here can only force "external" (safe — still runs
+# the mandatory vision workflow). It must never be used to infer "native" —
+# an unrecognized model name always falls through to the explicit
+# VISION_ROUTING setting (default "external"), never silently skipped.
+TEXT_ONLY_MODEL_PATTERNS = ("deepseek",)
+
+
+def resolve_routing() -> str:
+    """Returns "native" or "external".
+
+    "native" must come from an explicit, human-set VISION_ROUTING=native —
+    never inferred. The blocklist only ever overrides toward "external", as
+    a safety net for a stale VISION_ROUTING left over from a previous
+    native-model session.
+    """
+    model_hint = os.environ.get("ANTHROPIC_MODEL", "").lower()
+    if any(p in model_hint for p in TEXT_ONLY_MODEL_PATTERNS):
+        return "external"
+    return os.environ.get("VISION_ROUTING", "external").lower()
+
 
 REQUEST_TIMEOUT = 60
 
@@ -234,6 +258,14 @@ def vision(image_path: str, prompt: str, provider_name: str, config: dict) -> st
     return vision_openai_compatible(image_path, prompt, provider_name, config)
 
 
+def routing_message(routing: str) -> str:
+    if routing == "native":
+        return ("VISION_ROUTING=native — native image understanding is expected this "
+                 "session; skip this tool and analyze the image directly.")
+    return ("VISION_ROUTING=external — no native image understanding this session; "
+             "the mandatory vision workflow applies.")
+
+
 # ── cli ─────────────────────────────────────────────────────────────
 def main():
     parser = argparse.ArgumentParser(description="Multi-provider vision tool")
@@ -242,9 +274,35 @@ def main():
                         help=f"Vision model provider: built-in ({builtin}), or any custom name backed by "
                              f"{{NAME}}_API_KEY/{{NAME}}_BASE_URL/{{NAME}}_MODEL env vars "
                              f"(auto-detected from env if omitted)")
-    parser.add_argument("image_path", help="Path to the image file")
-    parser.add_argument("prompt", help="Text prompt for the vision model")
+    parser.add_argument("--check-routing", action="store_true",
+                        help="Print 'native' or 'external' and exit — used by SKILL.md to decide "
+                             "whether this tool is needed this session")
+    parser.add_argument("--session-start-hook", action="store_true",
+                        help="Emit a Claude Code SessionStart hook JSON payload and exit")
+    parser.add_argument("image_path", nargs="?", help="Path to the image file")
+    parser.add_argument("prompt", nargs="?", help="Text prompt for the vision model")
     args = parser.parse_args()
+
+    if args.check_routing:
+        print(resolve_routing())
+        return
+
+    if args.session_start_hook:
+        print(json.dumps({
+            "hookSpecificOutput": {
+                "hookEventName": "SessionStart",
+                "additionalContext": routing_message(resolve_routing()),
+            }
+        }))
+        return
+
+    if resolve_routing() == "native":
+        print(routing_message("native"))
+        return
+
+    if not args.image_path or not args.prompt:
+        print("Error: image_path and prompt are required", file=sys.stderr)
+        sys.exit(1)
 
     if not os.path.exists(args.image_path):
         print(f"Error: file not found: {args.image_path}", file=sys.stderr)

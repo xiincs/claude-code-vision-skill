@@ -1,24 +1,21 @@
 <!-- === VISION_SKILL_START === -->
 
-# Claude Code 视觉检查配置
+# Claude Code Visual Inspection Configuration
 
-## 前端页面检查流程（强制）
+## Front-end Page Check Workflow (mandatory)
 
-检查前端页面布局 / UI 时，**禁止**逐行阅读代码来推断布局问题，必须用截图 + 视觉模型分析实际渲染：
+When checking front-end page layout / UI, **do not** infer layout problems merely by reading code — you must actually look at the rendered screenshot:
 
-1. 确保 dev server 已启动，获取页面 URL
-2. 用 `browser-harness` 截图：
-   - `new_tab(url)` 打开页面
-   - `wait_for_load()` 等待加载
-   - `time.sleep(2)` 等待动画/渲染完成
-   - `capture_screenshot` 全页截图
-   - 滚动到不同位置再截 2-3 张，覆盖全部内容
-3. 每张截图用 vision skill 分析：
-   ```
-   python ~/.claude/skills/vision/vision.py "截图路径" "分析布局问题：对齐、间距、溢出、留白、截断、空白区域等"
-   ```
-   可选 `--provider qwen` 或 `--provider openai` 切换模型
-4. 输出乱码时用 GBK 解码：`open(path, 'rb').read().decode('gbk')`
-5. 汇总所有截图的分析结果，列出完整的问题清单
+1. Make sure the dev server is running, and get the page URL
+2. Take a screenshot with `browser-harness`:
+   - `new_tab(url)` to open the page
+   - `wait_for_load()` to wait for loading
+   - `time.sleep(2)` to wait for animations/rendering to finish
+   - `capture_screenshot` for a full-page screenshot
+   - Scroll to different positions and capture 2-3 more screenshots to cover all content
+3. Analyze each screenshot for layout issues: alignment, spacing, overflow, whitespace, truncation, empty areas, etc.
+   If you cannot understand the screenshot content directly, you must process it with an available image-understanding tool before continuing the analysis.
+4. If the output is garbled, decode as GBK: `open(path, 'rb').read().decode('gbk')`
+5. Summarize the analysis results from all screenshots and list the complete set of issues
 
 <!-- === VISION_SKILL_END === -->
