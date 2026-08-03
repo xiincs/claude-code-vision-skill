@@ -1,3 +1,4 @@
+import json
 import sys
 import types
 from unittest.mock import MagicMock
@@ -5,6 +6,105 @@ from unittest.mock import MagicMock
 import pytest
 
 import vision
+
+
+# ── resolve_routing ────────────────────────────────────────────────
+def test_resolve_routing_default_external():
+    assert vision.resolve_routing() == "external"
+
+
+def test_resolve_routing_explicit_native(monkeypatch):
+    monkeypatch.setenv("VISION_ROUTING", "native")
+    assert vision.resolve_routing() == "native"
+
+
+def test_resolve_routing_explicit_external(monkeypatch):
+    monkeypatch.setenv("VISION_ROUTING", "external")
+    assert vision.resolve_routing() == "external"
+
+
+def test_resolve_routing_case_insensitive(monkeypatch):
+    monkeypatch.setenv("VISION_ROUTING", "NATIVE")
+    assert vision.resolve_routing() == "native"
+
+
+def test_resolve_routing_blocklist_overrides_native(monkeypatch):
+    """A known text-only model forces 'external' even if VISION_ROUTING=native
+    was left over from a previous native-model session — the blocklist only
+    ever pushes toward the safe direction, never the other way."""
+    monkeypatch.setenv("VISION_ROUTING", "native")
+    monkeypatch.setenv("ANTHROPIC_MODEL", "deepseek-chat")
+    assert vision.resolve_routing() == "external"
+
+
+def test_resolve_routing_blocklist_matches_without_vision_routing_set(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_MODEL", "deepseek-reasoner")
+    assert vision.resolve_routing() == "external"
+
+
+def test_resolve_routing_blocklist_case_insensitive(monkeypatch):
+    monkeypatch.setenv("VISION_ROUTING", "native")
+    monkeypatch.setenv("ANTHROPIC_MODEL", "DeepSeek-V3")
+    assert vision.resolve_routing() == "external"
+
+
+def test_resolve_routing_unrecognized_model_does_not_imply_native(monkeypatch):
+    """An unlisted model name must never be inferred as native — only an
+    explicit VISION_ROUTING=native can produce 'native'."""
+    monkeypatch.setenv("ANTHROPIC_MODEL", "some-brand-new-multimodal-model")
+    assert vision.resolve_routing() == "external"
+
+
+# ── routing_message ──────────────────────────────────────────────────
+def test_routing_message_native():
+    msg = vision.routing_message("native")
+    assert "native" in msg.lower()
+    assert "skip" in msg.lower()
+
+
+def test_routing_message_external():
+    msg = vision.routing_message("external")
+    assert "external" in msg.lower()
+
+
+# ── cli: --check-routing / --session-start-hook ───────────────────────
+def test_cli_check_routing_prints_external_by_default(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["vision.py", "--check-routing"])
+    vision.main()
+    assert capsys.readouterr().out.strip() == "external"
+
+
+def test_cli_check_routing_prints_native(monkeypatch, capsys):
+    monkeypatch.setenv("VISION_ROUTING", "native")
+    monkeypatch.setattr(sys, "argv", ["vision.py", "--check-routing"])
+    vision.main()
+    assert capsys.readouterr().out.strip() == "native"
+
+
+def test_cli_session_start_hook_emits_valid_json(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["vision.py", "--session-start-hook"])
+    vision.main()
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["hookSpecificOutput"]["hookEventName"] == "SessionStart"
+    assert "external" in payload["hookSpecificOutput"]["additionalContext"].lower()
+
+
+def test_cli_session_start_hook_reflects_native_routing(monkeypatch, capsys):
+    monkeypatch.setenv("VISION_ROUTING", "native")
+    monkeypatch.setattr(sys, "argv", ["vision.py", "--session-start-hook"])
+    vision.main()
+    payload = json.loads(capsys.readouterr().out)
+    assert "native" in payload["hookSpecificOutput"]["additionalContext"].lower()
+
+
+def test_cli_native_routing_skips_without_image_args(monkeypatch, capsys):
+    """With VISION_ROUTING=native and no image_path/prompt given, main() must
+    short-circuit on the routing check before reaching the required-args
+    validation — the whole point is that no image analysis is attempted."""
+    monkeypatch.setenv("VISION_ROUTING", "native")
+    monkeypatch.setattr(sys, "argv", ["vision.py"])
+    vision.main()
+    assert "native" in capsys.readouterr().out.lower()
 
 
 # ── resolve_provider ─────────────────────────────────────────────────

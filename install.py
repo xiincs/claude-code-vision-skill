@@ -83,6 +83,41 @@ def set_env_in_settings(key: str, value: str) -> None:
     write_json(path, settings)
 
 
+# ── SessionStart hook (routing) ────────────────────────────────────
+HOOK_MATCHER = "startup|resume|clear|compact"
+
+
+def register_session_start_hook(vision_py_path: Path, dry_run: bool = False) -> None:
+    """Register a SessionStart hook so vision-routing (native vs. external) is
+    recomputed from the live environment every session — no manual toggle,
+    no re-running this installer after switching providers."""
+    command = f'python "{vision_py_path}" --session-start-hook'
+
+    if dry_run:
+        print(f"[dry-run] register SessionStart hook -> {command}")
+        return
+
+    path = get_settings_path()
+    settings = read_json(path)
+    session_start = settings.setdefault("hooks", {}).setdefault("SessionStart", [])
+
+    # drop any prior registration of this hook (path may have changed) before re-adding
+    session_start[:] = [
+        entry for entry in session_start
+        if not any(
+            h.get("type") == "command" and "--session-start-hook" in h.get("command", "")
+            for h in entry.get("hooks", [])
+        )
+    ]
+    session_start.append({
+        "matcher": HOOK_MATCHER,
+        "hooks": [{"type": "command", "command": command, "timeout": 10}],
+    })
+
+    write_json(path, settings)
+    print("  registered SessionStart hook for vision routing")
+
+
 # ── file copy ───────────────────────────────────────────────────────
 def install_skill_files(target: Path, dry_run: bool = False) -> None:
     if dry_run:
@@ -224,6 +259,7 @@ def interactive() -> None:
     target = Path.home() / ".claude" / "skills" / "vision"
     print()
     install_skill_files(target)
+    register_session_start_hook(target / "vision.py")
 
     # merge claude.md
     yn = input("\nMerge CLAUDE.md template into ~/.claude/CLAUDE.md? [Y/n]: ").strip().lower()
@@ -242,6 +278,10 @@ def run_noninteractive(args) -> None:
     print("Installing vision skill files...")
     install_skill_files(target, dry_run=dry)
     print(f"  -> {target}\n")
+
+    print("Registering SessionStart routing hook...")
+    register_session_start_hook(target / "vision.py", dry_run=dry)
+    print()
 
     # 2. configure API keys, and (for custom providers) base URL / model / protocol
     key_pairs = parse_provider_value_pairs(args.api_key, "--api-key")

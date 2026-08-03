@@ -7,6 +7,19 @@ description: Call vision models (Doubao, Qwen, OpenAI) to analyze images. Use wh
 
 Multi-provider vision tool. Call various vision models to describe images. Feed it a prompt + image path, get back a text description.
 
+## When to use this tool
+
+If you can already see and understand the image yourself (native multimodal model), skip this tool — analyze it directly.
+
+A SessionStart hook normally announces this session's routing status up front. If that context isn't visible (e.g. compacted out of a long conversation, or the hook isn't installed), check before calling this tool:
+
+```bash
+python vision.py --check-routing
+```
+
+- `native` → you already have native image understanding this session; don't call this tool.
+- `external` (default) → proceed with the quick start below.
+
 ## Quick start
 
 ```bash
