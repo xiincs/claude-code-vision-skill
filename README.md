@@ -125,6 +125,29 @@ export MYAPI_MODEL="your-vision-model"
 export MYAPI_PROTOCOL="openai"        # 可选，openai(默认) 或 anthropic
 ```
 
+## 免费供应商速查
+
+不想为豆包/Qwen/OpenAI/Claude 任何一个申请付费 key？下面这些渠道提供免费视觉模型，注册即可用，按上面"自定义 provider"的三个环境变量接入即可。**额度随时可能调整，使用前请自行到官网核实**，此表仅供起步参考：
+
+| 渠道 | 免费视觉模型 | 大致额度 | 备注 |
+|---|---|---|---|
+| 智谱 (bigmodel.cn) | `glm-4v-flash` | 新用户注册赠 2000万 token | openai 协议兼容；`glm-4.6v-flash` 等具体型号请以 [docs.bigmodel.cn](https://docs.bigmodel.cn) 当前列表为准 |
+| DashScope（阿里云百炼） | `qwen-vl-max` / `qwen-vl-plus` 等 | 新人额度合计超7000万 token，单模型约100万、90天有效 | 即你已内置的 `qwen` provider，无需额外接入 |
+| Groq | `meta-llama/llama-4-scout-17b-16e-instruct`（原生多模态，Preview 阶段） | 约 30 RPM，日请求上限各来源数字不一致（1000~14400） | 免信用卡；国内需代理访问 |
+| Google AI Studio | `gemini-2.5-flash` / `flash-lite` | 约 10–15 RPM，日请求配额官方近期多次下调 | 需代理访问；配额波动频繁，以 [AI Studio 项目页](https://aistudio.google.com) 实时数据为准 |
+
+接入示例（以智谱为例）：
+
+```bash
+export ZHIPU_API_KEY="your_key"
+export ZHIPU_BASE_URL="https://open.bigmodel.cn/api/paas/v4"
+export ZHIPU_MODEL="glm-4v-flash"
+```
+
+```bash
+python ~/.claude/skills/vision/vision.py --provider zhipu "screenshot.png" "描述这张图"
+```
+
 ## 模型切换路由（VISION_ROUTING）
 
 通过 CC Switch 等代理在 DeepSeek 之类纯文本模型和原生多模态模型之间切换时，Claude Code
