@@ -20,11 +20,12 @@
 |----------|------|-----------------|
 | 豆包 (Doubao) | doubao-seed-2-0-pro-260215 | `DOUBAO_API_KEY` |
 | 通义千问 (Qwen) | qwen-vl-max | `DASHSCOPE_API_KEY` |
+| DeepSeek | deepseek-v4-flash-vision-exp | `DEEPSEEK_API_KEY` |
 | OpenAI | gpt-4o | `OPENAI_API_KEY` |
 | Claude (Anthropic) | claude-sonnet-5 | `ANTHROPIC_API_KEY` |
 | **任意自定义 provider** | 任意 | `{NAME}_API_KEY` |
 
-不在上面四个内置厂商里的 `--provider` 名字，会按同一套命名约定动态解析：设置
+不在上面内置厂商里的 `--provider` 名字，会按同一套命名约定动态解析：设置
 `{NAME}_API_KEY` / `{NAME}_BASE_URL` / `{NAME}_MODEL`（`{NAME}_PROTOCOL` 可选，
 默认 `openai`，需要 Anthropic Messages API 形状时设为 `anthropic`），无需改一行代码即可接入任意 OpenAI 兼容端点（vLLM、Ollama、LiteLLM、OpenRouter、Azure OpenAI、自建代理等）。详见 [vision/SKILL.md](vision/SKILL.md#any-custom-provider)。
 
@@ -48,7 +49,7 @@ pip install -r requirements.txt
 
 使用 AskUserQuestion 询问以下信息：
 
-1. **选择 provider**：doubao / qwen / openai / anthropic / 自定义（可多选；自定义需额外要 base URL、model，可选 protocol）
+1. **选择 provider**：doubao / qwen / deepseek / openai / anthropic / 自定义（可多选；自定义需额外要 base URL、model，可选 protocol）
 2. **API Key**：每个 provider 的 API key
 3. **默认 provider**（多选时）：选哪个作为默认
 
@@ -108,6 +109,7 @@ python install.py --dry-run
 # 至少设置一个
 export DOUBAO_API_KEY="your_key"      # 豆包
 export DASHSCOPE_API_KEY="your_key"   # 通义千问
+export DEEPSEEK_API_KEY="your_key"    # DeepSeek
 export OPENAI_API_KEY="your_key"      # OpenAI
 export ANTHROPIC_API_KEY="your_key"   # Claude
 
@@ -116,7 +118,7 @@ export VISION_PROVIDER=qwen           # 默认 provider
 export VISION_MODEL=qwen-vl-max       # 覆盖模型
 ```
 
-自定义 provider（不在内置四个之列）按 `{NAME}_*` 命名约定注册，无需改代码：
+自定义 provider（不在内置列表之列）按 `{NAME}_*` 命名约定注册，无需改代码：
 
 ```bash
 export MYAPI_API_KEY="your_key"
@@ -154,12 +156,13 @@ python ~/.claude/skills/vision/vision.py --provider zhipu "screenshot.png" "描�
 **无法感知真实连接的是哪个模型**——代理把请求伪装成 Anthropic API 协议转发，这层转换对
 Claude Code 不可见。路由判断按以下优先级依次进行：
 
-1. **内置纯文本模型黑名单**（当前覆盖 DeepSeek、Qwen3-Coder、GLM-4.5/4.6、GLM-5.x、Kimi K2
-   的纯文本版本、Devstral）：`ANTHROPIC_MODEL` 命中时始终强制 `external`，优先级最高，即使
-   下面几条都指向别的结果也不例外。黑名单用正则匹配，因为个别厂商的多模态版本和纯文本版本
+1. **内置纯文本模型黑名单**（当前覆盖 Qwen3-Coder、Devstral，以及 DeepSeek、GLM-4.5/4.6、
+   GLM-5.x、Kimi K2 的纯文本版本）：`ANTHROPIC_MODEL` 命中时始终强制 `external`，优先级最高，
+   即使下面几条都指向别的结果也不例外。黑名单用正则匹配，因为个别厂商的多模态版本和纯文本版本
    共享同一前缀（例如 GLM 的 `glm-4.6` vs `glm-4.6v`、Kimi 的 `kimi-k2-thinking` vs
-   `kimi-k2.6`），正则排除了这些多模态变体，避免误伤。黑名单只会让判断更保守（多调用），不会
-   让它更激进（漏检）——未命中的新模型永远不会被静默推断成 `native`。
+   `kimi-k2.6`、DeepSeek 的 `deepseek-v4-flash` vs `deepseek-v4-flash-vision-exp`），正则排除
+   了这些多模态变体，避免误伤。黑名单只会让判断更保守（多调用），不会让它更激进（漏检）——未
+   命中的新模型永远不会被静默推断成 `native`。
 2. **显式 `VISION_ROUTING`**：设置了就按你说的来（`native` 或 `external`），优先于下面的自动判断。
 3. **未设置 `ANTHROPIC_BASE_URL`，或指向官方 `api.anthropic.com`** → 自动判定为 `native`。
    这不是猜测：Anthropic 官方 API 不提供纯文本模型，只要没有代理把这个地址改写指向别处，

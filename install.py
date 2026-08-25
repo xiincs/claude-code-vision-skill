@@ -27,6 +27,7 @@ MERGE_MARKER_END = "<!-- === VISION_SKILL_END === -->"
 PROVIDER_LABELS = {
     "doubao": "Doubao (Volcengine Ark)",
     "qwen": "Qwen (DashScope)",
+    "deepseek": "DeepSeek",
     "openai": "OpenAI (GPT-4o)",
     "anthropic": "Claude (Anthropic)",
 }
@@ -34,6 +35,7 @@ PROVIDER_LABELS = {
 PROVIDER_KEY_ENV = {
     "doubao": "DOUBAO_API_KEY",
     "qwen": "DASHSCOPE_API_KEY",
+    "deepseek": "DEEPSEEK_API_KEY",
     "openai": "OPENAI_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",
 }

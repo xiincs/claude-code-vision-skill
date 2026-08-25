@@ -2,8 +2,8 @@
 Multi-provider vision tool.
 Usage: python vision.py [--provider <name>] <image_path> <prompt>
 
-Providers: doubao (Volcengine Ark), qwen (DashScope), openai, anthropic (Claude)
-Set one of: DOUBAO_API_KEY, DASHSCOPE_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY
+Providers: doubao (Volcengine Ark), qwen (DashScope), deepseek (DeepSeek), openai, anthropic (Claude)
+Set one of: DOUBAO_API_KEY, DASHSCOPE_API_KEY, DEEPSEEK_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY
 """
 import sys
 import os
@@ -40,6 +40,13 @@ PROVIDERS = {
         "model_default": "qwen-vl-max",
         "protocol": "openai",
     },
+    "deepseek": {
+        "key_env": "DEEPSEEK_API_KEY",
+        "base_env": "DEEPSEEK_BASE_URL",
+        "base_default": "https://api.deepseek.com",
+        "model_default": "deepseek-v4-flash-vision-exp",
+        "protocol": "openai",
+    },
     "openai": {
         "key_env": "OPENAI_API_KEY",
         "base_env": "OPENAI_BASE_URL",
@@ -63,8 +70,13 @@ PROVIDERS = {
 # an unrecognized model name always falls through to the checks below,
 # never silently skipped.
 # Patterns are regexes matched against the lowercased model name with
-# re.search — not plain substrings — because three families need a boundary
+# re.search — not plain substrings — because four families need a boundary
 # plain substrings can't express:
+#   - deepseek(?!.*vision)  DeepSeek's lineup is text-only except for the
+#     dedicated deepseek-v4-flash-vision-exp variant; deepseek-v4-flash and
+#     deepseek-v4-pro stay text-only. The lookahead excludes any model name
+#     with "vision" in it so later vision releases (once it drops the "-exp"
+#     suffix) don't need a separate listing.
 #   - kimi-k2-  Moonshot's text-only Kimi IDs are all "kimi-k2-<suffix>"
 #     (kimi-k2-turbo-preview, kimi-k2-thinking, ...). The newer kimi-k2.5/
 #     k2.6/k2.7 add vision and use a dot instead of a hyphen after "k2", so
@@ -77,7 +89,7 @@ PROVIDERS = {
 #     a plain prefix match would catch it too. Both lookaheads exclude just
 #     the "v" that marks the vision line.
 TEXT_ONLY_MODEL_PATTERNS = (
-    r"deepseek",
+    r"deepseek(?!.*vision)",
     r"qwen3-coder",
     r"glm-4\.[56](?!v)",
     r"glm-5(?!v)",

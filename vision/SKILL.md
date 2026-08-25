@@ -1,6 +1,6 @@
 ---
 name: vision
-description: Call vision models (Doubao, Qwen, OpenAI) to analyze images. Use when you need to understand screenshots, UI layouts, diagrams, or any image content. Supports png/jpg/webp/gif.
+description: Call vision models (Doubao, Qwen, DeepSeek, OpenAI) to analyze images. Use when you need to understand screenshots, UI layouts, diagrams, or any image content. Supports png/jpg/webp/gif.
 ---
 
 # vision
@@ -43,6 +43,13 @@ When `--provider` is omitted, the provider is resolved by: `--provider` flag > `
 - Custom endpoint: `DASHSCOPE_BASE_URL`
 - Available models: `qwen-vl-max`, `qwen-vl-plus`, `qvq-max`
 
+### deepseek (DeepSeek)
+
+- API key: `DEEPSEEK_API_KEY`
+- Default model: `deepseek-v4-flash-vision-exp`
+- Custom endpoint: `DEEPSEEK_BASE_URL`
+- Only `deepseek-v4-flash-vision-exp` accepts images — `deepseek-v4-flash` and `deepseek-v4-pro` are text-only and reject image input with an error.
+
 ### openai (GPT-4o)
 
 - API key: `OPENAI_API_KEY`
@@ -59,7 +66,7 @@ When `--provider` is omitted, the provider is resolved by: `--provider` flag > `
 
 ### any custom provider
 
-Any `--provider` name outside the built-in four is resolved dynamically from
+Any `--provider` name outside the built-in ones is resolved dynamically from
 environment variables named after it — no code changes needed:
 
 | Env Var | Required | Notes |
@@ -96,7 +103,7 @@ variables to set instead of a generic "unknown provider" error.
 | `VISION_TEMPERATURE` | Response creativity 0–1 | `0` |
 | `VISION_MAX_TOKENS` | Max response tokens | `4096` |
 
-Note: auto-detect (no `--provider` / `VISION_PROVIDER` set) only scans the four
+Note: auto-detect (no `--provider` / `VISION_PROVIDER` set) only scans the
 built-in providers' API keys — a custom provider must always be named explicitly.
 
 ## Examples
