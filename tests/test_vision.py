@@ -102,6 +102,24 @@ def test_resolve_routing_blocklist_overrides_official_base_url(monkeypatch):
     assert vision.resolve_routing() == "external"
 
 
+def test_resolve_routing_blocklist_matches_deepseek_v4_text_models(monkeypatch):
+    """DeepSeek's current text-only models (deepseek-v4-flash, deepseek-v4-pro)
+    must still be blocked after carving out the new vision variant below."""
+    monkeypatch.setenv("VISION_ROUTING", "native")
+    monkeypatch.setenv("ANTHROPIC_MODEL", "deepseek-v4-flash")
+    assert vision.resolve_routing() == "external"
+
+
+def test_resolve_routing_blocklist_excludes_deepseek_vision_variant(monkeypatch):
+    """deepseek-v4-flash-vision-exp is DeepSeek's dedicated vision model, not
+    a text-only backend — it must not match the blocklist, so an explicit
+    VISION_ROUTING=native is left standing (mirrors GLM's -v and Kimi's
+    dotted k2.x exclusions)."""
+    monkeypatch.setenv("VISION_ROUTING", "native")
+    monkeypatch.setenv("ANTHROPIC_MODEL", "deepseek-v4-flash-vision-exp")
+    assert vision.resolve_routing() == "native"
+
+
 def test_resolve_routing_unrecognized_model_with_relay_does_not_imply_native(monkeypatch):
     """An unlisted model name must never be enough to infer native by
     itself — only an explicit VISION_ROUTING=native, or a verified official
@@ -175,6 +193,18 @@ def test_resolve_provider_explicit_valid():
     name, config = vision.resolve_provider("qwen")
     assert name == "qwen"
     assert config == vision.PROVIDERS["qwen"]
+
+
+def test_resolve_provider_explicit_deepseek():
+    name, config = vision.resolve_provider("deepseek")
+    assert name == "deepseek"
+    assert config == {
+        "key_env": "DEEPSEEK_API_KEY",
+        "base_env": "DEEPSEEK_BASE_URL",
+        "base_default": "https://api.deepseek.com",
+        "model_default": "deepseek-v4-flash-vision-exp",
+        "protocol": "openai",
+    }
 
 
 def test_resolve_provider_explicit_invalid_exits():
